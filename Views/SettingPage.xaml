@@ -1,0 +1,38 @@
+﻿<UserControl x:Class="CustomSpectrumAnalyzer.SettingPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:CustomSpectrumAnalyzer"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800">
+
+    <Grid>
+        <Border Margin="5" BorderBrush="Gray" BorderThickness="1">
+            <StackPanel x:Name="SettingPanel" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel.Resources>
+                    <Style TargetType="Button">
+                        <Setter Property="Margin" Value="5"></Setter>
+                        <Setter Property="HorizontalAlignment" Value="Left"></Setter>
+                        <Setter Property="Width" Value="80"></Setter>
+                    </Style>
+                    <Style TargetType="TextBox">
+                        <Setter Property="Width" Value="50"></Setter>
+                        <Setter Property="VerticalAlignment" Value="Top"></Setter>
+                    </Style>
+                </StackPanel.Resources>
+                <Button x:Name="ResetMarkerNumButton" Content="ResetMarker" Command="{Binding ResetMarkerCommand}"></Button>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text=" Set Center Frequency :  "></TextBlock>
+                    <TextBox x:Name="CenterFreqTextBox" Text="{Binding CenterFreq}" ></TextBox>
+                    <TextBlock Text=" Span :  "></TextBlock>
+                    <TextBox x:Name="SpanTextBox" Text="{Binding Span}"></TextBox>
+                    <TextBlock Text=" Viewer Ref Lv : "></TextBlock>
+                    <TextBox x:Name="ViewerRefLvTextBox" Text="{Binding ViewerRefLv}"></TextBox>
+                </StackPanel>
+                <Label Width="5"></Label>
+                <Button x:Name="ApplyButton" Content="적용" Command="{Binding SettingApplyCommand}"></Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
