@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -14,39 +15,31 @@ namespace CustomSpectrumAnalyzer
     /// </summary>
     public partial class SpectrumCanvasUC : UserControl
     {
-        List<Point> pointList = new List<Point>();
+        public bool IsInit = false;
 
-        double canvasWidth = 0;
-        double canvasHeight = 0;
+        List<Point> pointList = new List<Point>();
 
         #region Width/Height Offsets
         double heightTextOffset = 5;
 
-        double widthOffset = 10;
-        double heightOffset = 10;
-
-        int xMarkerTextOffset = 8;
-        int yMarkerTextOffset = 30;
+        const int X_MarkerTextOffset = 8;
+        const int Y_MarkerTextOffset = 30;
 
         int polygonOffsetA = 5; // polygon offset x 
         int polygonOffsetB = 10; // polygon offset y
         #endregion
 
-        int LengthOfData = 1000;
-
-        int markerNum = 1;
+        #region Drag & Drop
+        bool isDragged = false;
+        double MovedX = 0.1;
+        int dragNum = 0;
+        #endregion
 
         readonly int XaxisMax = 3;
 
-        const int CrossLineSize = 10;
-        const int YInterval = 10;
-
-        bool isMarkerMoveMode = false;
         int selectedMarkerIndex = -1;
 
-        #region Line Drag-Drop 관련 속성들
-        double FirstXPos, FirstYPos; //, FirstArrowXPos, FirstArrowYPos;
-        #endregion
+        float[] data = null;
 
         #region object name
         readonly string MarkerPolygonName = "MarkerTri";
@@ -63,13 +56,14 @@ namespace CustomSpectrumAnalyzer
         {
             InitializeComponent();
             this.DataContext = App.Current.Services.GetService(typeof(SpectrumViewModel));
+            IsInit = true;
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             // Set Window Properties
-            canvasWidth = MainCanvas.ActualWidth;
-            canvasHeight = MainCanvas.ActualHeight;
+            SpectrumViewModel.CanvasWidth = MainCanvas.ActualWidth;
+            SpectrumViewModel.CanvasHeight = MainCanvas.ActualHeight;
 
             SetDefaultShapeProperties(SpectrumPolyline);
 
@@ -126,17 +120,19 @@ namespace CustomSpectrumAnalyzer
             //    pointList.Add(new Point(scaledX, scaledY));
             //}
             #endregion
-            
+
             // -100 ~ 100 사이 발생
             float randomMin = -100;
             float ranStep = 100;
 
+            data = new float[MaxLength];
             for (int i = 0; i < MaxLength; i++)
             {
-                float data = randomMin + (float)i * 0.001f * ranStep; // 0~1 * step
+                float y = randomMin + i * 0.001f * ranStep; // 0~1 * step
+                data[i] = y;
 
-                double scaledX = (double)i * (canvasWidth - widthOffset) / (double)LengthOfData;
-                double scaledY = GetScaledY(data, param.ViewerRefLv);
+                double scaledX = SpectrumViewModel.GetScaledX(i);
+                double scaledY = SpectrumViewModel.GetScaledY(y, param.ViewerRefLv);
 
                 pointList.Add(new Point(scaledX, scaledY));
             }
@@ -145,29 +141,15 @@ namespace CustomSpectrumAnalyzer
             {
                 SpectrumPolyline.Points = new PointCollection(pointList);
                 SpectrumPolyline.Stroke = new SolidColorBrush() { Color = Color.FromRgb(160, 128, 0) };
+                SpectrumPolyline.Stroke.Freeze();
             }));
-        }
-
-        private double GetScaledY(float data, double viewerRefLv)
-        {
-            double yOffset = 0.25;
-            double yRatioOffset = 0.973;
-            double y = canvasHeight;
-
-            // view ref level에 따라 scaled 된 y가 조정됨
-            // Revision To Do 
-            double yScaledRatio = (viewerRefLv - (double)data + yOffset) / (CrossLineSize * YInterval) * yRatioOffset;
-
-            // 전체 그래프 높이를 기준으로 조정된 Y값 반환
-            double scaledY = y * yScaledRatio + yOffset;
-            return scaledY;
         }
 
         public void Init(SettingParameter defaultParam)
         {
             #region Draw OutLine
             // Draw Vertical Lines
-            for (int i = 0; i <= CrossLineSize; i++)
+            for (int i = 0; i <= SpectrumViewModel.CrossLineSize; i++)
             {
                 double x = GetXpos(i);
 
@@ -177,7 +159,7 @@ namespace CustomSpectrumAnalyzer
                 verticalLine.Y1 = 0;
 
                 verticalLine.X2 = x;
-                verticalLine.Y2 = canvasHeight - heightOffset;
+                verticalLine.Y2 = SpectrumViewModel.CanvasHeight - SpectrumViewModel.HeightOffset;
 
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -188,14 +170,14 @@ namespace CustomSpectrumAnalyzer
             // Draw X Axis Text
             for (int i = 0; i < XaxisMax; i++)
             {
-                DrawXaxisText(GetXpos(i * (CrossLineSize / (XaxisMax - 1))), i, defaultParam.CenterFreq, defaultParam.Span);
+                DrawXaxisText(GetXpos(i * (SpectrumViewModel.CrossLineSize / (XaxisMax - 1))), i, defaultParam.CenterFreq, defaultParam.Span);
             }
 
             // Draw X Unit Text
             DrawXunitText();
 
             // Draw Horizontal Lines (In Draw Y Axis Text)
-            for (int i = 0; i <= CrossLineSize; i++)
+            for (int i = 0; i <= SpectrumViewModel.CrossLineSize; i++)
             {
                 double y = GetYpos(i);
 
@@ -204,7 +186,7 @@ namespace CustomSpectrumAnalyzer
                 horizontalLine.X1 = 0;
                 horizontalLine.Y1 = y;
 
-                horizontalLine.X2 = canvasWidth - widthOffset;
+                horizontalLine.X2 = SpectrumViewModel.CanvasWidth - SpectrumViewModel.WidthOffset;
                 horizontalLine.Y2 = y;
 
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -222,15 +204,15 @@ namespace CustomSpectrumAnalyzer
 
         private double GetXpos(int iter)
         {
-            return (double)iter / (double)CrossLineSize * (canvasWidth - widthOffset);
+            return (double)iter / (double)SpectrumViewModel.CrossLineSize * (SpectrumViewModel.CanvasWidth - SpectrumViewModel.WidthOffset);
         }
 
         private double GetYpos(int iter)
         {
-            return (double)iter / (double)CrossLineSize * (canvasHeight - heightOffset);
+            return (double)iter / (double)SpectrumViewModel.CrossLineSize * (SpectrumViewModel.CanvasHeight - SpectrumViewModel.HeightOffset);
         }
 
-        // Y축 Text 구성 및 생성/도시
+        // X축 Text 구성 및 생성/도시
         private void DrawXaxisText(double x, int iter, double centerFreq, double span)
         {
             int xOffset = 25;
@@ -247,19 +229,19 @@ namespace CustomSpectrumAnalyzer
             else if (iter == 1)
             {
                 // center x
-                x = (canvasWidth - 0) / 2 - xOffset;
+                x = (SpectrumViewModel.CanvasWidth - 0) / 2 - xOffset;
             }
 
             else if (iter == 2)
             {
                 // 가장 오른쪽 x
-                x = canvasWidth - 0 - xOffset - xOffset;
+                x = SpectrumViewModel.CanvasWidth - 0 - xOffset - xOffset;
             }
 
             // Center Frequency와 Span 조정에 따른 Text 값, 배치 수정
             // Revision To Do 
             textBlockX.Text = (centerFreq - (span / 2) + (iter * span / (XaxisMax - 1))).ToString("F2");
-            Canvas.SetTop(textBlockX, canvasHeight - heightTextOffset);
+            Canvas.SetTop(textBlockX, SpectrumViewModel.CanvasHeight - heightTextOffset);
             Canvas.SetLeft(textBlockX, x);
 
             Dispatcher.BeginInvoke(new Action(() =>
@@ -268,7 +250,7 @@ namespace CustomSpectrumAnalyzer
             }));
         }
 
-        // X축 Text 구성 및 생성/도시
+        // Y축 Text 구성 및 생성/도시
         private void DrawYaxisText(double y, int iter, double viewerRefLv)
         {
             double widthTextOffset = -18;
@@ -279,7 +261,7 @@ namespace CustomSpectrumAnalyzer
 
             // Ref Lv에 따른 Text 값 수정
             // Revision To Do 
-            var yValue = viewerRefLv - YInterval * iter;
+            var yValue = viewerRefLv - SpectrumViewModel.YInterval * iter;
             textBlockY.Text = yValue.ToString();
 
             if (yValue < 0)
@@ -296,16 +278,16 @@ namespace CustomSpectrumAnalyzer
                 MainCanvas.Children.Add(textBlockY);
             }));
         }
-
+        #region 고정 요소 도시
+        // X축 단위 이름 표시
         private void DrawXunitText()
         {
             double xUnitOffset = 5;
             TextBlock textBlockXunit = new TextBlock();
             textBlockXunit.Name = XunitTextName;
             textBlockXunit.Text = "[MHZ]";
-            Canvas.SetTop(textBlockXunit, canvasHeight - heightTextOffset);
-            Canvas.SetLeft(textBlockXunit, canvasWidth - xUnitOffset);
-
+            Canvas.SetTop(textBlockXunit, SpectrumViewModel.CanvasHeight - heightTextOffset);
+            Canvas.SetLeft(textBlockXunit, SpectrumViewModel.CanvasWidth - xUnitOffset);
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -313,6 +295,7 @@ namespace CustomSpectrumAnalyzer
             }));
         }
 
+        // Y축 단위 이름 표시
         private void DrawYunitText()
         {
             double yUnitOffset = 17;
@@ -327,13 +310,14 @@ namespace CustomSpectrumAnalyzer
                 MainCanvas.Children.Add(textBlockYunit);
             }));
         }
+        #endregion
 
         public void ResetAllMarker()
         {
             Dispatcher.Invoke(new Action(() =>
             {
                 // 모든 Marker를 순회하면서 해당 Marker의 Control들을 삭제함
-                for (int i = 1; i <= markerNum; i++)
+                for (int i = 1; i <= SpectrumViewModel.MarkerNum; i++)
                 {
                     var markerPolyObj = (Polygon)this.FindChildFromName(MarkerPolygonName + i.ToString());
                     var markerTextObj = (TextBlock)this.FindChildFromName(MarkerTextName + i.ToString());
@@ -345,11 +329,12 @@ namespace CustomSpectrumAnalyzer
                     }
                 }
 
-                MarkerLine.Visibility = Visibility.Hidden;
+                // MarkerLine.Visibility = Visibility.Hidden;
+                MarkerThumb.Visibility = Visibility.Hidden;
             }));
 
             // Marker Number 초기화
-            markerNum = 1;
+            SpectrumViewModel.MarkerNum = 1;
         }
 
         // 설정 적용
@@ -374,7 +359,7 @@ namespace CustomSpectrumAnalyzer
 
             // Find Y axis Text (0~SizeOfLine)
             // And Apply Y Setting
-            for (int i = 0; i <= CrossLineSize; i++)
+            for (int i = 0; i <= SpectrumViewModel.CrossLineSize; i++)
             {
                 var element = FindChildFromName(YaxisTextName + i);
 
@@ -388,7 +373,7 @@ namespace CustomSpectrumAnalyzer
             }
         }
 
-        private void SetDefaultShapeProperties(Shape shape, double thickness = 2, System.Windows.Media.Brush brush = null)
+        private void SetDefaultShapeProperties(Shape shape, double thickness = 1, System.Windows.Media.Brush brush = null)
         {
             if (shape != null)
             {
@@ -466,23 +451,25 @@ namespace CustomSpectrumAnalyzer
             double xClickedBound = 7.0;
             double yClickedBound = 7.0;
 
-            // MarkerLine Always X1==X2
-            if (clickedPosition.X > MarkerLine.X1 - xClickedBound &&
-                clickedPosition.X < MarkerLine.X2 + xClickedBound &&
-                clickedPosition.Y > MarkerLine.Y1 - yClickedBound &&
-                clickedPosition.Y < MarkerLine.Y2 + yClickedBound)
-            {
-                bHit = true;
-            }
+            //// MarkerLine Always X1==X2
+            //if (clickedPosition.X > MarkerThumb. - xClickedBound &&
+            //    clickedPosition.X < MarkerLine.X2 + xClickedBound &&
+            //    clickedPosition.Y > MarkerLine.Y1 - yClickedBound &&
+            //    clickedPosition.Y < MarkerLine.Y2 + yClickedBound)
+            //{
+            //    bHit = true;
+            //}
 
             return bHit;
         }
 
-        private void MainGrid_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        // Marker 추가
+        public void AddMarker(System.Windows.Input.MouseButtonEventArgs e)
         {
             var curPos = e.GetPosition(this.MainCanvas);
-
             Point markerCenterPos = new Point();
+
+            SpectrumViewModel.ClickedPoint = curPos;
 
             // Mouse Down 위치에 Marker 유무 확인
             selectedMarkerIndex = HitTestMarker(curPos, ref markerCenterPos);
@@ -490,49 +477,12 @@ namespace CustomSpectrumAnalyzer
             // 성공
             if (selectedMarkerIndex != -1)
             {
-                // Hit 위치에 더블클릭 시 해당 x 위치에 y0 ~ yHeight의 Line 생성
-                if (e.ClickCount == 2)
-                {
-                    Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        MarkerLine.Visibility = Visibility.Visible;
-                    }));
-
-                    // 선택된 Marker 정 중앙 위치에 Line을 설정함
-                    double posX = markerCenterPos.X;
-
-                    MarkerLine.X1 = posX;
-                    MarkerLine.X2 = posX;
-                    MarkerLine.Y1 = 0;
-                    MarkerLine.Y2 = canvasHeight - heightOffset;
-
-                    isMarkerMoveMode = true;
-
-                    Canvas.SetTop(MarkerLine, 0);
-                    Canvas.SetLeft(MarkerLine, 0);
-                }
-            } // end if (selectedMarkerIndex != -1)
+                SpectrumViewModel.MarkerNum = selectedMarkerIndex;
+            } 
 
             // 실패
             else
             {
-                // Line에 Hit 했을 때는 Line을 Hidden 시키지 않음, MoveMode도 유지
-                if (HitTestLine(curPos))
-                {
-                    return;
-                }
-
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    MarkerLine.Visibility = Visibility.Hidden;
-                }));
-
-                if (isMarkerMoveMode)
-                {
-                    isMarkerMoveMode = false;
-                    return;
-                }
-
                 if (e.LeftButton == MouseButtonState.Pressed)
                 {
                     // Marker 생성
@@ -544,7 +494,7 @@ namespace CustomSpectrumAnalyzer
 
                     // 삼각형 생성(Marker Triangle)
                     Polygon polygon = new Polygon();
-                    polygon.Name = MarkerPolygonName + markerNum.ToString(); // To Do :: Marker polygon Num에 따른 Name 변경할 것
+                    polygon.Name = MarkerPolygonName + SpectrumViewModel.MarkerNum.ToString(); // To Do :: Marker polygon Num에 따른 Name 변경할 것
                     Point p1 = curPos;
                     Point p2 = new Point(curPos.X, curPos.Y);
                     Point p3 = new Point(curPos.X, curPos.Y);
@@ -552,96 +502,143 @@ namespace CustomSpectrumAnalyzer
                     polygon.Points.Add(curPos);
                     polygon.Points.Add(new Point(curPos.X - polygonOffsetA, curPos.Y - polygonOffsetB));
                     polygon.Points.Add(new Point(curPos.X + polygonOffsetA, curPos.Y - polygonOffsetB));
+                    polygon.Fill = new SolidColorBrush() { Color = Color.FromArgb(100, 255, 0, 0) };
+                    polygon.MouseDown += Polygon_MouseDown;
 
                     // 텍스트 블록 생성(Marker TextBlock)
                     TextBlock textBlockMarker = new TextBlock();
-                    textBlockMarker.Name = MarkerTextName + markerNum.ToString(); // To Do :: Marker Num에 따른 Marker Name 변경
-                    textBlockMarker.Text = "M" + markerNum.ToString();
+                    textBlockMarker.Name = MarkerTextName + SpectrumViewModel.MarkerNum.ToString(); // To Do :: Marker Num에 따른 Marker Name 변경
+                    textBlockMarker.Text = "M" + SpectrumViewModel.MarkerNum.ToString();
 
-                    Canvas.SetLeft(textBlockMarker, curPos.X - xMarkerTextOffset);
-                    Canvas.SetTop(textBlockMarker, curPos.Y - yMarkerTextOffset);
+                    Canvas.SetLeft(textBlockMarker, curPos.X - X_MarkerTextOffset);
+                    Canvas.SetTop(textBlockMarker, curPos.Y - Y_MarkerTextOffset);
 
                     SetDefaultShapeProperties(polygon, 1.5, System.Windows.Media.Brushes.Red);
 
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        markerNum++;
+                        SpectrumViewModel.MarkerNum++;
 
                         MainCanvas.Children.Add(polygon);
                         MainCanvas.Children.Add(textBlockMarker);
                     }));
                 } // end if (e.LeftButton == MouseButtonState.Pressed)
-            } // end else
+            }
         }
+        /// Polygon MouseDown Event -> Behavior 쪽으로 넘김
+        //private void PolyLine_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        //{
+        //    var curPos = e.GetPosition(this.MainCanvas);
+        //    AddMarker(e.GetPosition(this.MainCanvas));
+        //}
 
-        private void MarkerLine_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void Polygon_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            FirstXPos = e.GetPosition(sender as Control).X;
-            FirstYPos = e.GetPosition(sender as Control).Y;
-            //FirstArrowXPos = e.GetPosition((sender as Control).Parent as Control).X - FirstXPos;
-            //FirstArrowYPos = e.GetPosition((sender as Control).Parent as Control).Y - FirstYPos;
-        }
+            var polygon = sender as Polygon;
+            string strName = polygon.Name;
 
-        // Line을 잡고 있어야만 해당 이벤트가 발생하므로 전체 Canvas MouseMove로 코드 이동시켰음
-        private void MarkerLine_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-        }
+            var curPos = e.GetPosition(this.MainCanvas);
+            Point markerCenterPos = new Point();
 
-        private void MainCanvas_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (e.LeftButton == MouseButtonState.Pressed)
+            SpectrumViewModel.ClickedPoint = curPos;
+            // Mouse Down 위치에 Marker 유무 확인
+            selectedMarkerIndex = HitTestMarker(SpectrumViewModel.ClickedPoint, ref markerCenterPos);
+
+            // 성공
+            if (selectedMarkerIndex != -1)
             {
-                if (isMarkerMoveMode)
+                // Hit 위치에 더블클릭 시 해당 x 위치에 y0 ~ yHeight의 Line 생성
+                if (e.ClickCount == 2)
                 {
-                    var curPos = e.GetPosition(this.MainCanvas);
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        MarkerThumb.Visibility = Visibility.Visible;
+                        Canvas.SetLeft(MarkerThumb, markerCenterPos.X);
+                    }));
 
-                    //MarkerLine.SetValue(Canvas.LeftProperty,
-                    //    e.GetPosition(MarkerLine.Parent as FrameworkElement).X - FirstXPos);
-
-                    // Marker X 위치만 마우스 위치로 변동함
-                    MarkerLine.X1 = curPos.X;
-                    MarkerLine.X2 = curPos.X;
-
-                    // Y 위치는 변동하지 않음
-                    //MarkerLine.SetValue(Canvas.TopProperty,
-                    //    e.GetPosition(MarkerLine.Parent as FrameworkElement).Y - FirstYPos);
+                    isDragged = false;
                 }
+            } // end if (selectedMarkerIndex != -1)
+        }
+
+        public void MarkerDragged(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+        {
+            var thumb = sender as Thumb;
+            Point markerCenterPos = new Point();
+
+            if (MovedX < 0 || MovedX > MainCanvas.ActualWidth)
+            {
+                // return;
+            }
+
+            if (isDragged)
+            {
+                // x + 범위 넘어가는 경우
+                double XRightMargin = 12;
+                double XLeftMargin = 2;
+
+                // 아예 바깥으로 못 넘어가게끔 예외처리 필요
+                if ((e.HorizontalChange > 0 && MovedX > MainCanvas.ActualWidth - XRightMargin)
+                    || (e.HorizontalChange < 0 && MovedX < XLeftMargin))
+                {
+                    return;
+                }
+
+                Canvas.SetLeft(thumb, MovedX + e.HorizontalChange);
+                MovedX += e.HorizontalChange;
+
+                if (dragNum++ % 10 <= 10)
+                {
+                    // Moved X 위치에 해당 Marker Num을 배치하기
+                    var xIndex = SpectrumViewModel.GetXIndexAtScreen(MovedX);
+                    // data 배열 Index에 대한 예외처리
+                    if (xIndex < 0 || xIndex >= data.Length)
+                    {
+                        return;
+                    }
+                    var movedY = SpectrumViewModel.GetScaledY(data[xIndex], 0);
+
+                    // Moved X에 대한 Frequency 값
+                    // 선택한 Marker 객체를 찾아 위치 이동
+                    var markerPolyObj = (Polygon)this.FindChildFromName(MarkerPolygonName + selectedMarkerIndex.ToString());
+                    var markerTextObj = (TextBlock)this.FindChildFromName(MarkerTextName + selectedMarkerIndex.ToString());
+
+                    if (markerPolyObj != null && markerTextObj != null)
+                    {
+                        // 현재 마우스 위치로 삼각형 위치 변경
+                        markerPolyObj.Points.Clear();
+
+                        markerPolyObj.Points.Add(new Point(MovedX, movedY));
+                        markerPolyObj.Points.Add(new Point(MovedX - polygonOffsetA, movedY - polygonOffsetB));
+                        markerPolyObj.Points.Add(new Point(MovedX + polygonOffsetA, movedY - polygonOffsetB));
+
+                        SpectrumViewModel.DraggedPoint = new Point(MovedX, movedY);
+
+                        // 텍스트 블록 위치 변경
+                        Canvas.SetLeft(markerTextObj, MovedX - X_MarkerTextOffset);
+                        Canvas.SetTop(markerTextObj, movedY - Y_MarkerTextOffset);
+                    }
+                }
+
+            } // end if IsDragged
+
+            else
+            {
+                MovedX = SpectrumViewModel.ClickedPoint.X + e.HorizontalChange;
+                isDragged = true;
+
+                // Mouse Down 위치에 Marker 유무 확인
+                selectedMarkerIndex = HitTestMarker(SpectrumViewModel.ClickedPoint, ref markerCenterPos);
             }
         }
 
-        private void MarkerLine_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (isMarkerMoveMode)
-            {
-                var curPos = e.GetPosition(this.MainCanvas);
+        /// Marker Thumb Drag-Drop Event -> Behavior 쪽으로 넘김
+        //private void MarkerThumb_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+        //{
+        //    // MarkerDragged(sender, e);
+        //}
 
-                // 선택한 Marker 객체를 찾아 위치 이동
-                var markerPolyObj = (Polygon)this.FindChildFromName(MarkerPolygonName + selectedMarkerIndex.ToString());
-                var markerTextObj = (TextBlock)this.FindChildFromName(MarkerTextName + selectedMarkerIndex.ToString());
-
-                if (markerPolyObj != null && markerTextObj != null)
-                {
-                    // 현재 마우스 위치로 삼각형 위치 변경
-                    markerPolyObj.Points.Clear();
-
-                    markerPolyObj.Points.Add(curPos);
-                    markerPolyObj.Points.Add(new Point(curPos.X - polygonOffsetA, curPos.Y - polygonOffsetB));
-                    markerPolyObj.Points.Add(new Point(curPos.X + polygonOffsetA, curPos.Y - polygonOffsetB));
-
-                    // 텍스트 블록 위치 변경
-                    Canvas.SetLeft(markerTextObj, curPos.X - xMarkerTextOffset);
-                    Canvas.SetTop(markerTextObj, curPos.Y - yMarkerTextOffset);
-                }
-
-                // Marker Index 초기화
-                selectedMarkerIndex = -1;
-
-                // Marker 이동 모드 해제
-                isMarkerMoveMode = false;
-            } // end if (isMarkerMoveMode)
-        }
-
-        // Canvas에서 Name을 통해 Child Element를 Finding 하기
+        /// Canvas에서 Name을 통해 Child Element를 Finding 하기
         private UIElement FindChildFromName(string strName)
         {
             UIElement element = null;

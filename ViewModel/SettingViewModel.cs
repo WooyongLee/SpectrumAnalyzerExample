@@ -68,6 +68,11 @@ namespace CustomSpectrumAnalyzer
                 ControlName = "ResetMarker " + GetTimeStamp(),
                 SettingParam = new SettingParameter(ESettingCommandType.ResetMarker)
             });
+
+            WeakReferenceMessenger.Default.Send(new MarkerMessage(true)
+            {
+                MarkerCommandType = EMarkerCommandType.Clear,
+            });
         }
 
         private string GetTimeStamp()

@@ -12,6 +12,7 @@ namespace CustomSpectrumAnalyzer
         // App 에서 사용할 각종 서비스, 뷰모델들을 Injection 하기 위해 미리 등록함
         public App()
         {
+            InitializeComponent();
             Services = ConfigureServices();
         }
 
@@ -29,6 +30,7 @@ namespace CustomSpectrumAnalyzer
             services.AddTransient(typeof(SettingViewModel));
             services.AddTransient(typeof(MainViewModel));
             services.AddTransient(typeof(SpectrumViewModel));
+            services.AddTransient(typeof(MarkerViewModel));
 
             services.AddTransient(typeof(SpectrumCanvasUC));
 

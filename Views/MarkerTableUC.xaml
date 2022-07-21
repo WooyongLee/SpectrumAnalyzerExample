@@ -6,9 +6,69 @@
              xmlns:local="clr-namespace:CustomSpectrumAnalyzer"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
+
     <Grid>
         <Border BorderBrush="Gray" BorderThickness="1.2" Margin="3">
-            
+            <DockPanel x:Name="Panel" Margin="5, 0, 0, 0" >
+                <ListBox x:Name="listBox" HorizontalContentAlignment="Stretch" 
+                         ScrollViewer.VerticalScrollBarVisibility="Hidden" 
+                         ScrollViewer.HorizontalScrollBarVisibility="Hidden">
+                    <ListBox.Resources>
+                        <Style TargetType="{x:Type ListBoxItem}" >
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="Green"></Setter>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="YellowGreen"></Setter>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.Resources>
+                    
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="Black" BorderThickness="1">
+                                <Grid Width="410" >
+                                    <Grid.Resources>
+                                        <Style TargetType="{x:Type Border}">
+                                            <Setter Property="BorderBrush" Value="DarkGray"></Setter>
+                                            <Setter Property="BorderThickness" Value="1"></Setter>
+                                        </Style>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Setter Property="HorizontalAlignment" Value="Center"></Setter>
+                                            <Setter Property="Margin" Value="3"></Setter>
+                                        </Style>
+                                    </Grid.Resources>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"></ColumnDefinition>
+                                        <ColumnDefinition Width="1*"></ColumnDefinition>
+                                        <ColumnDefinition Width="1*"></ColumnDefinition>
+                                    </Grid.ColumnDefinitions>
+                                    <Border>
+                                        <TextBlock Text="{Binding NumOfMarker}"></TextBlock>
+                                    </Border>
+
+                                    <Border Grid.Column="1" >
+                                        <TextBlock Text="{Binding Frequency, StringFormat={}{0:0.##}}"></TextBlock>
+                                    </Border>
+
+                                    <Border Grid.Column="2">
+                                        <TextBlock Text="{Binding Amp, StringFormat={}{0:0.##}}"></TextBlock>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" Width="{Binding ElementName=listBox, Path=ActualWidth}" >
+                                
+                            </WrapPanel>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                </ListBox>
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>

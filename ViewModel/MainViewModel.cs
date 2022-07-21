@@ -1,9 +1,4 @@
 ﻿using Microsoft.Toolkit.Mvvm.Messaging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CustomSpectrumAnalyzer
 {
@@ -18,19 +13,6 @@ namespace CustomSpectrumAnalyzer
 
         public MainViewModel()
         {
-            Init();
         }
-
-        private void Init()
-        {
-            // Register Setting Message Receiver
-            WeakReferenceMessenger.Default.Register<MarkerMessage>(this, OnMarkerInfoChanged);
-        }
-
-        private void OnMarkerInfoChanged(object recipient, MarkerMessage message)
-        {
-
-        }
-
     }
 }

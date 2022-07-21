@@ -34,6 +34,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.Bcl.AsyncInterfaces.6.0.0\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
@@ -96,9 +99,11 @@
     <Compile Include="Behaviors\SettingBehavior.cs" />
     <Compile Include="Models\MarkerMessage.cs" />
     <Compile Include="Models\SettingMessage.cs" />
+    <Compile Include="SettingParameter\MarkerParameter.cs" />
     <Compile Include="SettingParameter\SettingParameter.cs" />
     <Compile Include="ViewModelConverter\ObservableCollectionToPointCollectionConverter.cs" />
     <Compile Include="ViewModel\MainViewModel.cs" />
+    <Compile Include="ViewModel\MarkerViewModel.cs" />
     <Compile Include="ViewModel\SettingViewModel.cs" />
     <Compile Include="ViewModel\SpectrumViewModel.cs" />
     <Compile Include="ViewModel\ViewModelBase.cs" />

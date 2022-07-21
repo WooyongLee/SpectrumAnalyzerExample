@@ -18,6 +18,10 @@ namespace CustomSpectrumAnalyzer
 
         public SettingParameter(ESettingCommandType eSettingCommand)
         {
+            CenterFreq = 3650.01;
+            Span = 150.0;
+            ViewerRefLv = 0;
+
             this.CommandType = eSettingCommand;
         }
     }
